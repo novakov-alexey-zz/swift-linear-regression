@@ -13,7 +13,7 @@ struct Model: Differentiable {
   }
 }
 
-let random: () -> Precision = { Precision.random(in: 0...1) }
+let random: () -> Precision = { .random(in: 0...1) }
 
 func genDataset(size: Int, for model: Model) -> Dataset {
   var inputs: [Precision] = []
@@ -26,8 +26,8 @@ func genDataset(size: Int, for model: Model) -> Dataset {
   return (inputs, outputs)
 }
 
-func mse(_ y: Precision, _ yHat: Precision) -> Precision {
-  pow(y - yHat, 2)
+func mse(_ y: Precision, _ ŷ: Precision) -> Precision {
+  pow(y - ŷ, 2)
 }
 
 extension Array {
@@ -68,25 +68,19 @@ for epoch in 1...epochs {
   var losses: [Precision] = []
 
   for (xBatch, yBatch) in zip(xTrain.group(batchSize), yTrain.group(batchSize)) {
-
-    let (loss, 𝛁batch) =
-      zip(xBatch, yBatch)
-      .reduce(
-        (Precision(0), Model.TangentVector.init(weight: Precision(0), bias: Precision(0)))
-      ) { (acc, data) in
-        let (x, y) = data
-        let (loss, 𝛁model) = valueWithGradient(at: model) { model -> Precision in
-          let yHat = model(to: x)
-          return mse(y, yHat)
-        }
-        return (acc.0 + loss, acc.1 + 𝛁model)
+    let (loss, 𝛁loss) = valueWithGradient(at: model) { model -> Precision in
+      var loss = Precision(0)
+      for (x, y) in zip(xBatch, yBatch) {
+        let ŷ = model(to: x)
+        loss += mse(y, ŷ)
       }
+      return loss
+    }
 
     losses += [loss / Precision(xBatch.count)]
-    let 𝛁w = 𝛁batch.weight / Precision(xBatch.count)
-    let 𝛁b = 𝛁batch.bias / Precision(xBatch.count)
     model = Model(
-      weight: model.weight - learningRate * 𝛁w, bias: model.bias - learningRate * 𝛁b)
+      weight: model.weight - learningRate * 𝛁loss.weight,
+      bias: model.bias - learningRate * 𝛁loss.bias)
   }
   print("epoch: \(epoch), loss: \(losses.mean())")
 }
