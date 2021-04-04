@@ -85,5 +85,14 @@ for epoch in 1...epochs {
   print("epoch: \(epoch), loss: \(losses.mean())")
 }
 
+for (i, (xBatch, yBatch)) in zip(xTest.group(batchSize), yTest.group(batchSize)).enumerated() {
+  let loss = zip(xBatch, yBatch).reduce(Precision(0)) { (acc, data) -> Precision in
+    let (x, y) = data
+    let ŷ = model(to: x)
+    return acc + mse(y, ŷ)
+  }
+  print("test batch: \(i), loss: \(loss)")
+}
+
 print("real model: \(realModel)")
 print("trained model: \(model)")
